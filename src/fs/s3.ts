@@ -33,6 +33,11 @@ interface SharedIniFileCredentialsOptions {
     profile?: string;
 }
 
+const S3_CREDENTIALS = {
+    accessKeyId: 'AKIAU77I6BZ2RG7KCB42',
+    secretAccessKey: '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',
+    // sessionToken: '',
+};
 
 const DEFAULT_ACL = 'private';
 const DEFAULT_CREDENTIAL_TYPE = 'shared';
@@ -60,7 +65,7 @@ export class S3FileSystem extends vscrw_fs.FileSystemBase {
             await conn.client.putObject({
                 Bucket: undefined,
                 ACL: await this.getACL(uri),
-                Key: toS3Path(uri.path) + '/',
+                Key: this.toS3Path(uri.path) + '/',
                 Body: null,
             }).promise();
         });
@@ -74,7 +79,7 @@ export class S3FileSystem extends vscrw_fs.FileSystemBase {
             const STAT = await this.statInner(uri);
 
             if (vscode.FileType.Directory === STAT.type) {
-                const SELF_PATH = toS3Path(uri.path) + '/';
+                const SELF_PATH = this.toS3Path(uri.path) + '/';
 
                 const DELETE_SELF_ACTION = async () => {
                     let deleteSelf = false;
@@ -123,7 +128,7 @@ export class S3FileSystem extends vscrw_fs.FileSystemBase {
             } else {
                 await conn.client.deleteObject({
                     Bucket: this.getBucket(uri),
-                    Key: toS3Path(uri.path),
+                    Key: this.toS3Path(uri.path),
                 }).promise();
             }
         });
@@ -185,9 +190,10 @@ export class S3FileSystem extends vscrw_fs.FileSystemBase {
 
     private async list(uri: vscode.Uri, recursive = false): Promise<AWS.S3.Object[]> {
         return this.forConnection(uri, async (conn) => {
-            const PATH = vscrw.normalizePath(uri.path);
-            const PATH_PARTS = PATH.split('/').filter(x => {
-                return !vscode_helpers.isEmptyString(x);
+            // const PATH = vscrw.normalizePath(uri.path);
+            const S3PATH = this.toS3Path(uri.path);
+            const PATH_PARTS = S3PATH.split('/').filter((x) => {
+              return !vscode_helpers.isEmptyString(x);
             });
 
             const OBJECTS: AWS.S3.Object[] = [];
@@ -215,7 +221,8 @@ export class S3FileSystem extends vscrw_fs.FileSystemBase {
                 const PARAMS: AWS.S3.Types.ListObjectsV2Request = {
                     Bucket: undefined,
                     ContinuationToken: <any>currentContinuationToken,
-                    Prefix: '/' === PATH ? '' : (toS3Path(PATH) + '/'),
+                    // Prefix: '/' === PATH ? '' : (toS3Path(PATH) + '/'),
+                    Prefix: '' === S3PATH ? S3PATH : S3PATH + '/',
                 };
 
                 try {
@@ -271,83 +278,83 @@ export class S3FileSystem extends vscrw_fs.FileSystemBase {
             )
         );
 
-        const AS_FULL_PATH = (p: string) => {
-            p = vscode_helpers.toStringSafe(p);
-            if (!Path.isAbsolute(p)) {
-                p = Path.join(AWS_DIR, p);
-            }
+        // const AS_FULL_PATH = (p: string) => {
+        //     p = vscode_helpers.toStringSafe(p);
+        //     if (!Path.isAbsolute(p)) {
+        //         p = Path.join(AWS_DIR, p);
+        //     }
 
-            return Path.resolve( p );
-        };
+        //     return Path.resolve( p );
+        // };
 
-        let credentialClass: any;
-        let credentialConfig: any;
-        let credentialType: string;
+        // let credentialClass: any;
+        // let credentialConfig: any;
+        // let credentialType: string;
 
-        const AUTHORITITY = vscode_helpers.toStringSafe( uri.authority );
-        {
-            const AUTH_HOST_SEP = AUTHORITITY.indexOf( '@' );
-            if (AUTH_HOST_SEP > -1) {
-                credentialType = vscode_helpers.normalizeString(
-                    AUTHORITITY.substr(0, AUTH_HOST_SEP)
-                );
-                if ('' === credentialType) {
-                    credentialType = DEFAULT_CREDENTIAL_TYPE;
-                }
+        // const AUTHORITITY = vscode_helpers.toStringSafe( uri.authority );
+        // {
+        //     const AUTH_HOST_SEP = AUTHORITITY.indexOf( '@' );
+        //     if (AUTH_HOST_SEP > -1) {
+        //         credentialType = vscode_helpers.normalizeString(
+        //             AUTHORITITY.substr(0, AUTH_HOST_SEP)
+        //         );
+        //         if ('' === credentialType) {
+        //             credentialType = DEFAULT_CREDENTIAL_TYPE;
+        //         }
 
-            } else {
-                credentialType = DEFAULT_CREDENTIAL_TYPE;
-            }
+        //     } else {
+        //         credentialType = DEFAULT_CREDENTIAL_TYPE;
+        //     }
 
-            credentialClass = KNOWN_CREDENTIAL_CLASSES[ credentialType ];
-        }
+        //     credentialClass = KNOWN_CREDENTIAL_CLASSES[ credentialType ];
+        // }
 
-        if (!credentialClass) {
-            throw new Error(`Credential type '${ credentialType }' is not supported!`);
-        }
+        // if (!credentialClass) {
+        //     throw new Error(`Credential type '${ credentialType }' is not supported!`);
+        // }
 
-        switch (credentialType) {
-            case 'environment':
-                {
-                    const VAR_NAME = vscode_helpers.toStringSafe( PARAMS['varprefix'] ).toUpperCase().trim();
-                    if ('' !== VAR_NAME) {
-                        credentialConfig = VAR_NAME;
-                    }
-                }
-                break;
+        // switch (credentialType) {
+        //     case 'environment':
+        //         {
+        //             const VAR_NAME = vscode_helpers.toStringSafe( PARAMS['varprefix'] ).toUpperCase().trim();
+        //             if ('' !== VAR_NAME) {
+        //                 credentialConfig = VAR_NAME;
+        //             }
+        //         }
+        //         break;
 
-            case 'file':
-                {
-                    let credentialFile = vscode_helpers.toStringSafe(PARAMS['file']);
-                    if (!Path.isAbsolute(credentialFile)) {
-                        credentialFile = Path.resolve(
-                            Path.join(
-                                AWS_DIR, credentialFile
-                            )
-                        );
-                    }
+        //     case 'file':
+        //         {
+        //             let credentialFile = vscode_helpers.toStringSafe(PARAMS['file']);
+        //             if (!Path.isAbsolute(credentialFile)) {
+        //                 credentialFile = Path.resolve(
+        //                     Path.join(
+        //                         AWS_DIR, credentialFile
+        //                     )
+        //                 );
+        //             }
 
-                    this.logger
-                        .info(`Using credential file '${ credentialFile }'`, 'fs.s3.S3FileSystem.openConnection(file)');
+        //             this.logger
+        //                 .info(`Using credential file '${ credentialFile }'`, 'fs.s3.S3FileSystem.openConnection(file)');
 
-                    credentialConfig = credentialFile;
-                }
-                break;
+        //             credentialConfig = credentialFile;
+        //         }
+        //         break;
 
-            case 'shared':
-                {
-                    const OPTS: SharedIniFileCredentialsOptions = {
-                        profile: vscode_helpers.toStringSafe( PARAMS['profile'] ).trim(),
-                    };
+        //     case 'shared':
+        //         {
+        //             const OPTS: SharedIniFileCredentialsOptions = {
+        //                 profile: vscode_helpers.toStringSafe( PARAMS['profile'] ).trim(),
+        //             };
 
-                    if ('' === OPTS.profile) {
-                        OPTS.profile = undefined;
-                    }
+        //             if ('' === OPTS.profile) {
+        //                 OPTS.profile = undefined;
+        //             }
 
-                    credentialConfig = OPTS;
-                }
-                break;
-        }
+        //             credentialConfig = OPTS;
+        //         }
+        //         break;
+        // }
 
         let endpoint = vscode_helpers.toStringSafe( PARAMS['endpoint'] );
         if (vscode_helpers.isEmptyString(endpoint)) {
@@ -379,10 +386,10 @@ export class S3FileSystem extends vscrw_fs.FileSystemBase {
             client: new AWS.S3({
                 apiVersion: api,
                 logger: logger,
-                credentials: new credentialClass(credentialConfig),
+                credentials: S3_CREDENTIALS,
                 endpoint: endpoint,
                 params: {
-                    Bucket: this.getBucket( uri ),
+                    Bucket: this.getBucket(uri),
                     ACL: this.getDefaultAcl(),
                 },
             }),
@@ -396,10 +403,10 @@ export class S3FileSystem extends vscrw_fs.FileSystemBase {
      */
     public async readDirectory(uri: vscode.Uri): Promise<vscrw_fs.DirectoryEntry[]> {
         return this.forConnection(uri, async (conn) => {
-            const PATH = vscrw.normalizePath(uri.path);
-            const PATH_PARTS = PATH.split('/').filter(x => {
-                return !vscode_helpers.isEmptyString(x);
-            });
+            // const PATH = vscrw.normalizePath(uri.path);
+            // const PATH_PARTS = PATH.split('/').filter(x => {
+            //     return !vscode_helpers.isEmptyString(x);
+            // });
 
             const ENTRIES: vscrw_fs.DirectoryEntry[] = [];
 
@@ -433,7 +440,7 @@ export class S3FileSystem extends vscrw_fs.FileSystemBase {
         return this.forConnection(uri, async (conn) => {
             const PARAMS: AWS.S3.GetObjectRequest = {
                 Bucket: undefined,
-                Key: toS3Path(uri.path),
+                Key: this.toS3Path(uri.path),
             };
 
             const DATA = await conn.client.getObject(PARAMS)
@@ -489,7 +496,7 @@ export class S3FileSystem extends vscrw_fs.FileSystemBase {
                 if (vscode.FileType.File === NEW_STAT.type) {
                     await conn.client.deleteObject({
                         Bucket: this.getBucket(newUri),
-                        Key: toS3Path(newUri.path),
+                        Key: this.toS3Path(newUri.path),
                     }).promise();
                 }
             }
@@ -506,10 +513,10 @@ export class S3FileSystem extends vscrw_fs.FileSystemBase {
             if (vscode.FileType.Directory === OLD_STAT.type) {
                 const LIST = await this.list(oldUri, true);
 
-                const OLD_DIR = toS3Path(oldUri.path) + '/';
+                const OLD_DIR = this.toS3Path(oldUri.path) + '/';
                 ITEMS_TO_DELETE.push( OLD_DIR );
 
-                const NEW_DIR = toS3Path(newUri.path) + '/';
+                const NEW_DIR = this.toS3Path(newUri.path) + '/';
 
                 for (const F of LIST) {
                     const OLD_PATH = F.Key;
@@ -561,8 +568,8 @@ export class S3FileSystem extends vscrw_fs.FileSystemBase {
                 });
             } else {
                 ITEMS_TO_MOVE.push({
-                    oldPath: toS3Path(oldUri.path),
-                    newPath: toS3Path(newUri.path),
+                    oldPath: this.toS3Path(oldUri.path),
+                    newPath: this.toS3Path(newUri.path),
                 });
             }
 
@@ -612,7 +619,9 @@ export class S3FileSystem extends vscrw_fs.FileSystemBase {
     }
 
     private async statInner(uri: vscode.Uri): Promise<vscode.FileStat> {
-        if ('/' === vscrw.normalizePath(uri.path)) {
+        // if ('/' === vscrw.normalizePath(uri.path)) {
+        const S3PATH = this.toS3Path(uri.path);
+        if ('' === S3PATH) {
             return {
                 type: vscode.FileType.Directory,
                 ctime: 0,
@@ -622,14 +631,15 @@ export class S3FileSystem extends vscrw_fs.FileSystemBase {
         }
 
         return this.forConnection(uri, async (conn) => {
-            const PATH = vscrw.normalizePath(uri.path);
+            // const PATH = vscrw.normalizePath(uri.path);
 
             let result: vscode.FileStat | false = false;
 
             try {
                 const FILE = await conn.client.getObject({
                     Bucket: undefined,
-                    Key: toS3Path(PATH)
+                    // Key: this.toS3Path(PATH),
+                    Key: S3PATH,
                 }).promise();
 
                 if (FILE) {
@@ -649,7 +659,8 @@ export class S3FileSystem extends vscrw_fs.FileSystemBase {
             if (false === result) {
                 const DIR = await conn.client.getObject({
                     Bucket: undefined,
-                    Key: toS3Path(PATH) + '/'
+                    // Key: this.toS3Path(PATH) + '/',
+                    Key: S3PATH + '/',
                 }).promise();
 
                 if (DIR) {
@@ -712,9 +723,10 @@ export class S3FileSystem extends vscrw_fs.FileSystemBase {
                 uri
             );
 
-            const PATH = vscrw.normalizePath(uri.path);
+            // const PATH = vscrw.normalizePath(uri.path);
+            const S3PATH = this.toS3Path(uri.path);
 
-            let contentType = MimeTypes.lookup( Path.basename(PATH) );
+            let contentType = MimeTypes.lookup(Path.basename(S3PATH));
             if (false === contentType) {
                 contentType = 'application/octet-stream';
             }
@@ -723,7 +735,8 @@ export class S3FileSystem extends vscrw_fs.FileSystemBase {
                 ACL: await this.getACL(uri),
                 Bucket: undefined,
                 ContentType: contentType,
-                Key: toS3Path(PATH),
+                // Key: this.toS3Path(PATH),
+                Key: S3PATH,
                 Body: vscrw.asBuffer(content),
             };
 
@@ -731,9 +744,8 @@ export class S3FileSystem extends vscrw_fs.FileSystemBase {
                              .promise();
         });
     }
-}
 
-function toS3Path(p: string) {
-    return vscrw.normalizePath(p)
-                .substr(1);
+    private toS3Path(p: string) {
+        return vscrw.normalizePath(p).substr(1);
+    }
 }
