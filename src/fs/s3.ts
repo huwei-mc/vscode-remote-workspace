@@ -29,9 +29,9 @@ interface S3Connection {
     client: AWS.S3;
 }
 
-interface SharedIniFileCredentialsOptions {
-    profile?: string;
-}
+// interface SharedIniFileCredentialsOptions {
+//     profile?: string;
+// }
 
 const S3_CREDENTIALS = {
     accessKeyId: 'AKIAU77I6BZ2RG7KCB42',
@@ -39,14 +39,17 @@ const S3_CREDENTIALS = {
     // sessionToken: '',
 };
 
-const DEFAULT_ACL = 'private';
-const DEFAULT_CREDENTIAL_TYPE = 'shared';
+const USER_PREFIX = 'user-033843c6-839b-4b8b-a213-3ae7dd6d89cf';
+// const USER_PREFIX = 'AIDAU77I6BZ25DGMJ633P';
 
-const KNOWN_CREDENTIAL_CLASSES = {
-    'environment': AWS.EnvironmentCredentials,
-    'file': AWS.FileSystemCredentials,
-    'shared': AWS.SharedIniFileCredentials,
-};
+const DEFAULT_ACL = 'private';
+// const DEFAULT_CREDENTIAL_TYPE = 'shared';
+
+// const KNOWN_CREDENTIAL_CLASSES = {
+//     'environment': AWS.EnvironmentCredentials,
+//     'file': AWS.FileSystemCredentials,
+//     'shared': AWS.SharedIniFileCredentials,
+// };
 
 /**
  * S3 file system.
@@ -222,7 +225,7 @@ export class S3FileSystem extends vscrw_fs.FileSystemBase {
                     Bucket: undefined,
                     ContinuationToken: <any>currentContinuationToken,
                     // Prefix: '/' === PATH ? '' : (toS3Path(PATH) + '/'),
-                    Prefix: '' === S3PATH ? S3PATH : S3PATH + '/',
+                    Prefix: USER_PREFIX + '/' === S3PATH ? S3PATH : S3PATH + '/',
                 };
 
                 try {
@@ -621,13 +624,13 @@ export class S3FileSystem extends vscrw_fs.FileSystemBase {
     private async statInner(uri: vscode.Uri): Promise<vscode.FileStat> {
         // if ('/' === vscrw.normalizePath(uri.path)) {
         const S3PATH = this.toS3Path(uri.path);
-        if ('' === S3PATH) {
-            return {
-                type: vscode.FileType.Directory,
-                ctime: 0,
-                mtime: 0,
-                size: 0,
-            };
+        if (USER_PREFIX + '/' === S3PATH) {
+          return {
+            type: vscode.FileType.Directory,
+            ctime: 0,
+            mtime: 0,
+            size: 0,
+          };
         }
 
         return this.forConnection(uri, async (conn) => {
@@ -746,6 +749,6 @@ export class S3FileSystem extends vscrw_fs.FileSystemBase {
     }
 
     private toS3Path(p: string) {
-        return vscrw.normalizePath(p).substr(1);
+        return USER_PREFIX + vscrw.normalizePath(p);
     }
 }
