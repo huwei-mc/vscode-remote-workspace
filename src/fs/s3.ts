@@ -33,15 +33,6 @@ interface S3Connection {
 //     profile?: string;
 // }
 
-const S3_CREDENTIALS = {
-    accessKeyId: 'AKIAU77I6BZ2RG7KCB42',
-    secretAccessKey: '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',
-    // sessionToken: '',
-};
-
-const USER_PREFIX = 'user-033843c6-839b-4b8b-a213-3ae7dd6d89cf';
-// const USER_PREFIX = 'AIDAU77I6BZ25DGMJ633P';
-
 const DEFAULT_ACL = 'private';
 // const DEFAULT_CREDENTIAL_TYPE = 'shared';
 
@@ -55,6 +46,8 @@ const DEFAULT_ACL = 'private';
  * S3 file system.
  */
 export class S3FileSystem extends vscrw_fs.FileSystemBase {
+    private userPrefix: string;
+
     /**
      * @inheritdoc
      */
@@ -225,7 +218,7 @@ export class S3FileSystem extends vscrw_fs.FileSystemBase {
                     Bucket: undefined,
                     ContinuationToken: <any>currentContinuationToken,
                     // Prefix: '/' === PATH ? '' : (toS3Path(PATH) + '/'),
-                    Prefix: USER_PREFIX + '/' === S3PATH ? S3PATH : S3PATH + '/',
+                    Prefix: this.userPrefix + '/' === S3PATH ? S3PATH : S3PATH + '/',
                 };
 
                 try {
@@ -274,12 +267,12 @@ export class S3FileSystem extends vscrw_fs.FileSystemBase {
 
         const PARAMS = vscrw.getUriParams(uri);
 
-        const AWS_DIR = Path.resolve(
-            Path.join(
-                OS.homedir(),
-                '.aws'
-            )
-        );
+        // const AWS_DIR = Path.resolve(
+        //     Path.join(
+        //         OS.homedir(),
+        //         '.aws'
+        //     )
+        // );
 
         // const AS_FULL_PATH = (p: string) => {
         //     p = vscode_helpers.toStringSafe(p);
@@ -385,11 +378,26 @@ export class S3FileSystem extends vscrw_fs.FileSystemBase {
             };
         }
 
+        const credentials = {
+          accessKeyId: PARAMS.accesskeyid || undefined,
+          secretAccessKey: PARAMS.secretaccesskey || undefined,
+        };
+
+        this.userPrefix = PARAMS.userprefix;
+
+        if (!credentials.accessKeyId && !credentials.secretAccessKey) {
+          throw new Error('S3 credentials not provided');
+        }
+
+        if (!this.userPrefix) {
+            throw new Error('userPrefix not provided');
+        }
+
         const S3: S3Connection = {
             client: new AWS.S3({
                 apiVersion: api,
                 logger: logger,
-                credentials: S3_CREDENTIALS,
+                credentials,
                 endpoint: endpoint,
                 params: {
                     Bucket: this.getBucket(uri),
@@ -624,7 +632,7 @@ export class S3FileSystem extends vscrw_fs.FileSystemBase {
     private async statInner(uri: vscode.Uri): Promise<vscode.FileStat> {
         // if ('/' === vscrw.normalizePath(uri.path)) {
         const S3PATH = this.toS3Path(uri.path);
-        if (USER_PREFIX + '/' === S3PATH) {
+        if (this.userPrefix + '/' === S3PATH) {
           return {
             type: vscode.FileType.Directory,
             ctime: 0,
@@ -749,6 +757,6 @@ export class S3FileSystem extends vscrw_fs.FileSystemBase {
     }
 
     private toS3Path(p: string) {
-        return USER_PREFIX + vscrw.normalizePath(p);
+        return this.userPrefix + vscrw.normalizePath(p);
     }
 }
