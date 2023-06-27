@@ -139,5 +139,8 @@
         "uuid": "^3.4.0",
         "vscode-helpers": "^6.0.0",
         "webdav-client": "^1.4.3"
+    },
+    "resolutions": {
+        "@types/lodash": "4.14.182"
     }
 }
